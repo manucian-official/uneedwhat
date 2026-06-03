@@ -1,0 +1,10 @@
+.git/
+.venv/
+apps/web/node_modules/
+apps/web/dist/
+logs/
+workspace_data/
+models/
+__pycache__/
+*.pyc
+.pytest_cache/
