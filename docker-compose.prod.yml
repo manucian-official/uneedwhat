@@ -33,7 +33,25 @@ services:
     restart: unless-stopped
 
   mcp-workspace:
+    build:
+      context: ./mcp_servers
+    profiles:
+      - mcp
+    environment:
+      WORKSPACE_ROOT: /workspace_data
+    volumes:
+      - workspace_data:/workspace_data
+    command: ["python", "workspace_server.py"]
     restart: unless-stopped
 
   mcp-search:
+    build:
+      context: ./mcp_servers
+    profiles:
+      - mcp
+    environment:
+      SEARXNG_BASE_URL: http://searxng:8080
+    depends_on:
+      - searxng
+    command: ["python", "web_search_server.py"]
     restart: unless-stopped

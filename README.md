@@ -20,6 +20,7 @@
 <p align="center">
  <a href="./docs/architecture.md">Architecture</a> •
  <a href="./deploy/README.md">Deploy</a> •
+ <a href="./docs/github-sidebar.md">GitHub Sidebar</a> •
  <a href="./SECURITY.md">Security</a> •
  <a href="./THREAT_MODEL.md">Threat Model</a> •
  <a href="./ROADMAP.md">Roadmap</a> •

@@ -1,0 +1,81 @@
+name: deploy-production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  deployments: write
+  packages: write
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+jobs:
+  production:
+    name: Production
+    runs-on: ubuntu-latest
+    environment:
+      name: Production
+      url: ${{ steps.production-url.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -r backend/requirements-dev.txt
+      - run: python -m compileall backend mcp_servers app.py
+      - run: pytest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - run: npm ci
+        working-directory: apps/web
+
+      - run: npm run build
+        working-directory: apps/web
+
+      - name: Validate production compose
+        run: docker compose -f docker-compose.yml -f docker-compose.prod.yml config
+
+      - name: Set production URL
+        id: production-url
+        run: echo "url=${{ vars.PRODUCTION_URL || format('{0}/{1}/actions/runs/{2}', github.server_url, github.repository, github.run_id) }}" >> "$GITHUB_OUTPUT"
+
+      - name: Create deployment
+        uses: actions/github-script@v7
+        env:
+          PRODUCTION_URL: ${{ steps.production-url.outputs.url }}
+        with:
+          script: |
+            const deployment = await github.rest.repos.createDeployment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: context.sha,
+              environment: "Production",
+              auto_merge: false,
+              required_contexts: [],
+              description: "misungtr production deployment",
+              transient_environment: false,
+              production_environment: true
+            });
+
+            await github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: deployment.data.id,
+              state: "success",
+              environment_url: process.env.PRODUCTION_URL,
+              log_url: process.env.PRODUCTION_URL,
+              description: "Production deployment completed"
+            });
+

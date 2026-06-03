@@ -1,0 +1,42 @@
+{
+  "name": "misungtr",
+  "version": "0.1.0",
+  "description": "Self-hosted local-first AI workspace with Ollama, llama.cpp, SearXNG, MCP, and Docker deployment.",
+  "license": "MIT",
+  "type": "module",
+  "private": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/misungtr/misungtr.git"
+  },
+  "bugs": {
+    "url": "https://github.com/misungtr/misungtr/issues"
+  },
+  "homepage": "https://github.com/misungtr/misungtr#readme",
+  "keywords": [
+    "ai",
+    "self-hosted",
+    "ollama",
+    "llama-cpp",
+    "searxng",
+    "mcp",
+    "local-first",
+    "privacy"
+  ],
+  "files": [
+    "README.md",
+    "LICENSE",
+    "apps/",
+    "backend/",
+    "config/",
+    "deploy/",
+    "docker-compose.yml",
+    "docker-compose.prod.yml",
+    "mcp_servers/",
+    "scripts/"
+  ],
+  "scripts": {
+    "build": "npm --prefix apps/web run build",
+    "test:e2e": "npm --prefix apps/web run test:e2e"
+  }
+}
