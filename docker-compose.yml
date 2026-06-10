@@ -1,0 +1,89 @@
+name: misungtr
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8000
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+      AI_DEFAULT_PROVIDER: ${AI_DEFAULT_PROVIDER:-ollama}
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1:8b}
+      LLAMACPP_BASE_URL: http://llamacpp:8080
+      LLAMACPP_MODEL: ${LLAMACPP_MODEL:-local-model}
+      SEARXNG_BASE_URL: http://searxng:8080
+      WORKSPACE_ROOT: /workspace_data
+    volumes:
+      - workspace_data:/workspace_data
+    depends_on:
+      - ollama
+      - searxng
+    networks:
+      - misungtr-net
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000
+    depends_on:
+      - backend
+    networks:
+      - misungtr-net
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - misungtr-net
+
+  searxng:
+    image: searxng/searxng:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config/searxng:/etc/searxng:ro
+    environment:
+      SEARXNG_BASE_URL: http://localhost:8080
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    networks:
+      - misungtr-net
+
+  llamacpp:
+    image: ghcr.io/ggerganov/llama.cpp:server
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./models:/models:ro
+    command: ["-m", "/models/model.gguf", "--host", "0.0.0.0", "--port", "8080"]
+    profiles:
+      - llamacpp
+    networks:
+      - misungtr-net
+
+volumes:
+  workspace_data:
+  ollama_data:
+
+networks:
+  misungtr-net:
+    driver: bridge
