@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   ArrowRight,
@@ -7,6 +7,7 @@ import {
   Building2,
   CalendarRange,
   CheckCircle2,
+  CircleUserRound,
   Globe2,
   MapPin,
   Search,
@@ -19,16 +20,16 @@ import "./styles.css";
 
 const hiringSteps = [
   {
-    title: "Đăng tuyển nhanh",
-    text: "Tạo job post rõ ràng, chuẩn hóa yêu cầu và hiển thị ngay cho đúng nhóm ứng viên.",
+    title: "Dang tuyen nhanh",
+    text: "Tao job post ro rang, chuan hoa yeu cau va hien thi ngay cho dung nhom ung vien.",
   },
   {
-    title: "Lọc thông minh",
-    text: "Sàng hồ sơ theo kỹ năng, seniority, mức lương và mức độ phù hợp văn hoá.",
+    title: "Loc thong minh",
+    text: "Sang ho so theo ky nang, seniority, muc luong va muc do phu hop van hoa.",
   },
   {
-    title: "Kết nối gọn",
-    text: "Lên lịch phỏng vấn, gửi phản hồi và giữ toàn bộ pipeline đồng nhất trong một nơi.",
+    title: "Ket noi gon",
+    text: "Len lich phong van, gui phan hoi va giu toan bo pipeline dong nhat trong mot noi.",
   },
 ];
 
@@ -36,17 +37,17 @@ const audienceCards = [
   {
     icon: Building2,
     title: "Cho HR",
-    points: ["Quản lý job post", "Tăng chất lượng shortlist", "Giảm thời gian phản hồi"],
+    points: ["Quan ly job post", "Tang chat luong shortlist", "Giam thoi gian phan hoi"],
   },
   {
     icon: Users,
-    title: "Cho ứng viên",
-    points: ["Tìm việc phù hợp", "Xem thông tin minh bạch", "Theo dõi ứng tuyển"],
+    title: "Cho ung vien",
+    points: ["Tim viec phu hop", "Xem thong tin minh bach", "Theo doi ung tuyen"],
   },
   {
     icon: ShieldCheck,
-    title: "Cho team tuyển dụng",
-    points: ["Cộng tác nhanh", "Giữ dữ liệu tập trung", "Ra quyết định chắc hơn"],
+    title: "Cho team tuyen dung",
+    points: ["Cong tac nhanh", "Giu du lieu tap trung", "Ra quyet dinh chac hon"],
   },
 ];
 
@@ -75,11 +76,113 @@ const featuredJobs = [
 ];
 
 function App() {
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [authUser, setAuthUser] = useState(null);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState("HR");
+
+  useEffect(() => {
+    const savedUser = window.localStorage.getItem("uneedwhat.user");
+    if (!savedUser) return;
+    try {
+      setAuthUser(JSON.parse(savedUser));
+    } catch {
+      window.localStorage.removeItem("uneedwhat.user");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (authUser) {
+      window.localStorage.setItem("uneedwhat.user", JSON.stringify(authUser));
+    } else {
+      window.localStorage.removeItem("uneedwhat.user");
+    }
+  }, [authUser]);
+
+  function handleLogin(event) {
+    event.preventDefault();
+    setAuthUser({
+      name: email.split("@")[0] || "Guest",
+      email,
+      role,
+    });
+    setIsLoginOpen(false);
+  }
+
+  function handleQuickDemo() {
+    setAuthUser({
+      name: "Demo User",
+      email: "demo@uneedwhat.com",
+      role: "HR",
+    });
+    setIsLoginOpen(false);
+  }
+
   return (
     <main className="page-shell">
       <div className="orb orb-a" />
       <div className="orb orb-b" />
       <div className="grid-glow" />
+
+      {isLoginOpen && (
+        <div className="auth-overlay" role="dialog" aria-modal="true" aria-label="Login dialog">
+          <form className="auth-card" onSubmit={handleLogin}>
+            <div className="auth-head">
+              <div>
+                <span className="section-kicker">Login</span>
+                <h2>Dang nhap de bat dau</h2>
+              </div>
+              <button type="button" className="ghost-btn" onClick={() => setIsLoginOpen(false)}>
+                Dong
+              </button>
+            </div>
+
+            <label className="field">
+              <span>Email</span>
+              <input
+                name="email"
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="hr@company.com"
+                autoComplete="email"
+                required
+              />
+            </label>
+
+            <label className="field">
+              <span>Password</span>
+              <input
+                name="password"
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="********"
+                autoComplete="current-password"
+                required
+              />
+            </label>
+
+            <label className="field">
+              <span>Vai tro</span>
+              <select value={role} onChange={(event) => setRole(event.target.value)}>
+                <option>HR</option>
+                <option>Candidate</option>
+              </select>
+            </label>
+
+            <div className="auth-actions">
+              <button type="submit" className="primary-btn">
+                Login
+              </button>
+              <button type="button" className="secondary-btn" onClick={handleQuickDemo}>
+                Quick demo
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       <header className="topbar">
         <div className="brand">
@@ -90,48 +193,70 @@ function App() {
           </div>
         </div>
         <nav className="nav-links">
-          <a href="#hr">Dành cho HR</a>
-          <a href="#jobs">Việc làm</a>
-          <a href="#flow">Quy trình</a>
+          <a href="#hr">Danh cho HR</a>
+          <a href="#jobs">Viec lam</a>
+          <a href="#flow">Quy trinh</a>
         </nav>
-        <button className="primary-btn">
-          Đăng ký ngay
-          <ArrowRight size={16} />
-        </button>
+        <div className="topbar-actions">
+          {authUser ? (
+            <div className="user-chip">
+              <CircleUserRound size={16} />
+              <span>{authUser.name}</span>
+              <button className="ghost-btn" onClick={() => setAuthUser(null)}>
+                Logout
+              </button>
+            </div>
+          ) : (
+            <button className="primary-btn" onClick={() => setIsLoginOpen(true)}>
+              Dang nhap
+              <ArrowRight size={16} />
+            </button>
+          )}
+        </div>
       </header>
 
       <section className="hero">
         <div className="hero-copy">
+          {authUser && (
+            <div className="hero-session">
+              <BadgeCheck size={14} />
+              <span>
+                Xin chao {authUser.name}, ban dang o che do {authUser.role.toLowerCase()}.
+              </span>
+            </div>
+          )}
           <div className="hero-badge">
             <BadgeCheck size={14} />
-            <span>Nền tảng tuyển dụng tập trung cho HR và ứng viên</span>
+            <span>Nen tang tuyen dung tap trung cho HR va ung vien</span>
           </div>
-          <h1>Tuyển đúng người, tìm đúng việc, nhanh hơn.</h1>
+          <h1>Tuyen dung dung nguoi, tim dung viec, nhanh hon.</h1>
           <p>
-            Một landing page tuyển dụng với background có chiều sâu, hero nổi bật và layout rõ
-            ràng để HR đăng tin, còn ứng viên thì tìm cơ hội phù hợp ngay từ cái nhìn đầu tiên.
+            Mot landing page tuyen dung voi background co chieu sau, hero noi bat va layout ro
+            rang de HR dang tin, con ung vien thi tim co hoi phu hop ngay tu cai nhin dau tien.
           </p>
 
           <div className="hero-actions">
             <button className="primary-btn">
-              Khám phá việc làm
+              Kham pha viec lam
               <ArrowRight size={16} />
             </button>
-            <button className="secondary-btn">Dành cho HR</button>
+            <button className="secondary-btn" onClick={() => setIsLoginOpen(true)}>
+              Dang nhap thu
+            </button>
           </div>
 
           <div className="hero-stats">
             <article>
               <strong>1.2k+</strong>
-              <span>ứng viên hoạt động</span>
+              <span>ung vien hoat dong</span>
             </article>
             <article>
               <strong>180+</strong>
-              <span>job post mỗi tháng</span>
+              <span>job post moi thang</span>
             </article>
             <article>
               <strong>95%</strong>
-              <span>pipeline rõ ràng hơn</span>
+              <span>pipeline ro rang hon</span>
             </article>
           </div>
         </div>
@@ -150,15 +275,15 @@ function App() {
 
           <div className="pipeline">
             <div>
-              <span>Mới đăng</span>
+              <span>Moi dang</span>
               <strong>24</strong>
             </div>
             <div>
-              <span>Sàng lọc</span>
+              <span>Sang loc</span>
               <strong>11</strong>
             </div>
             <div>
-              <span>Phỏng vấn</span>
+              <span>Phong van</span>
               <strong>6</strong>
             </div>
             <div>
@@ -209,11 +334,11 @@ function App() {
         <div className="section-head">
           <div>
             <span className="section-kicker">Featured jobs</span>
-            <h2>Cơ hội nổi bật</h2>
+            <h2>Co hoi noi bat</h2>
           </div>
           <div className="search-chip">
             <Search size={14} />
-            Tìm theo kỹ năng, vị trí, mức lương
+            Tim theo ky nang, vi tri, muc luong
           </div>
         </div>
 
@@ -251,7 +376,7 @@ function App() {
         <div className="section-head">
           <div>
             <span className="section-kicker">Workflow</span>
-            <h2>Luồng tuyển dụng</h2>
+            <h2>Luong tuyen dung</h2>
           </div>
         </div>
         <div className="flow-grid">
