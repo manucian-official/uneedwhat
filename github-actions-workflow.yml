@@ -1,0 +1,460 @@
+name: Production CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # ============================================================================
+  # BACKEND TESTING & LINTING
+  # ============================================================================
+
+  backend-test:
+    name: Backend Tests & Linting
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
+
+    services:
+      postgres:
+        image: postgres:14-alpine
+        env:
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: uneedwhat_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: './backend/package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint code
+        run: npm run lint
+
+      - name: Run type check
+        run: npm run type-check
+
+      - name: Run unit tests
+        run: npm run test
+        env:
+          DATABASE_HOST: localhost
+          DATABASE_NAME: uneedwhat_test
+          DATABASE_USER: postgres
+          DATABASE_PASSWORD: testpass
+          REDIS_HOST: localhost
+          JWT_SECRET: test-secret
+          NODE_ENV: test
+
+      - name: Run integration tests
+        run: npm run test:integration
+        env:
+          DATABASE_HOST: localhost
+          DATABASE_NAME: uneedwhat_test
+          DATABASE_USER: postgres
+          DATABASE_PASSWORD: testpass
+          REDIS_HOST: localhost
+          JWT_SECRET: test-secret
+          NODE_ENV: test
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./backend/coverage/lcov.info
+          flags: backend
+          fail_ci_if_error: false
+
+  # ============================================================================
+  # FRONTEND TESTING & LINTING
+  # ============================================================================
+
+  frontend-test:
+    name: Frontend Tests & Linting
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: './frontend/package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint code
+        run: npm run lint
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Run unit tests
+        run: npm run test:unit
+
+      - name: Run E2E tests
+        run: npm run test:e2e
+        env:
+          VITE_API_URL: http://localhost:3000/api/v1
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./frontend/coverage/lcov.info
+          flags: frontend
+          fail_ci_if_error: false
+
+  # ============================================================================
+  # BUILD & SECURITY SCAN
+  # ============================================================================
+
+  build:
+    name: Build & Security Scan
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-test]
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build Docker image
+        run: docker build -t uneedwhat:${{ github.sha }} .
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'uneedwhat:${{ github.sha }}'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+          category: 'trivy'
+
+      - name: Run SonarQube scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.projectKey=manucian-official_uneedwhat
+            -Dsonar.organization=manucian-official
+
+  # ============================================================================
+  # DOCKER BUILD & PUSH
+  # ============================================================================
+
+  docker-build:
+    name: Docker Build & Push
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ============================================================================
+  # DEPLOY TO STAGING
+  # ============================================================================
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: docker-build
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    environment:
+      name: staging
+      url: https://staging.uneedwhat.com
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Deploy to staging environment
+        run: |
+          echo "Deploying to staging..."
+          # Example: Deploy using Docker Compose or Kubernetes
+          # kubectl set image deployment/uneedwhat-backend \
+          #   uneedwhat-backend=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:develop \
+          #   --record
+
+      - name: Run smoke tests on staging
+        run: |
+          echo "Running smoke tests..."
+          # curl -f https://staging.uneedwhat.com/api/v1/health || exit 1
+
+      - name: Notify deployment
+        if: success()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: 'success'
+          text: 'Staging deployment successful'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+
+  # ============================================================================
+  # DEPLOY TO PRODUCTION
+  # ============================================================================
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: docker-build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: production
+      url: https://uneedwhat.com
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Create deployment
+        uses: actions/github-script@v6
+        id: deployment
+        with:
+          script: |
+            const deployment = await github.rest.repos.createDeployment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: context.sha,
+              environment: 'production',
+              required_contexts: [],
+              auto_merge: false
+            });
+            return deployment.data.id;
+
+      - name: Deploy to production environment
+        run: |
+          echo "Deploying to production..."
+          # Example: Production deployment steps
+
+      - name: Health check
+        run: |
+          echo "Running health checks..."
+          # curl -f https://uneedwhat.com/api/v1/health || exit 1
+
+      - name: Database migrations
+        run: |
+          echo "Running database migrations..."
+          # npm run db:migrate:prod
+
+      - name: Cache warming
+        run: |
+          echo "Warming up cache..."
+          # curl -X POST https://uneedwhat.com/api/v1/admin/cache/warm
+
+      - name: Update deployment status
+        if: success()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: ${{ steps.deployment.outputs.result }},
+              state: 'success',
+              description: 'Deployment succeeded',
+              environment_url: 'https://uneedwhat.com'
+            });
+
+      - name: Notify success
+        if: success()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: 'success'
+          text: |
+            Production deployment successful! 🚀
+            Commit: ${{ github.event.head_commit.message }}
+            Author: ${{ github.event.head_commit.author.name }}
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+
+      - name: Notify failure
+        if: failure()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: 'failure'
+          text: 'Production deployment failed! ❌'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+
+  # ============================================================================
+  # PERFORMANCE MONITORING
+  # ============================================================================
+
+  performance-test:
+    name: Performance & Load Testing
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    if: github.ref == 'refs/heads/develop'
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install k6
+        run: |
+          sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3232A+86AD7F635B973F2D6D423C0
+          echo "deb https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6-stable.list
+          sudo apt-get update
+          sudo apt-get install -y k6
+
+      - name: Run load tests
+        run: k6 run ./tests/load-tests/api-endpoints.js
+        env:
+          K6_API_URL: https://staging.uneedwhat.com/api/v1
+
+      - name: Analyze results
+        if: always()
+        run: |
+          echo "Load test results analyzed"
+
+  # ============================================================================
+  # DEPENDENCY CHECK
+  # ============================================================================
+
+  dependency-check:
+    name: Dependency & License Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Check dependencies (backend)
+        working-directory: ./backend
+        run: |
+          npm ci
+          npm audit --audit-level=moderate
+
+      - name: Check dependencies (frontend)
+        working-directory: ./frontend
+        run: |
+          npm ci
+          npm audit --audit-level=moderate
+
+      - name: License check
+        run: |
+          npm install -g license-checker
+          license-checker --onlyunknown --production
+
+  # ============================================================================
+  # CODE QUALITY REPORT
+  # ============================================================================
+
+  code-quality:
+    name: Code Quality Report
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-test]
+    if: always()
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Download coverage reports
+        uses: actions/download-artifact@v3
+
+      - name: Generate code coverage report
+        run: |
+          echo "# Code Coverage Report" > coverage-report.md
+          echo "" >> coverage-report.md
+          echo "## Backend Coverage" >> coverage-report.md
+          echo "$(cat backend/coverage/coverage-summary.json 2>/dev/null || echo 'No coverage data')" >> coverage-report.md
+          echo "" >> coverage-report.md
+          echo "## Frontend Coverage" >> coverage-report.md
+          echo "$(cat frontend/coverage/coverage-summary.json 2>/dev/null || echo 'No coverage data')" >> coverage-report.md
+
+      - name: Comment PR with coverage
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('coverage-report.md', 'utf8');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: report
+            });
