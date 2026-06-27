@@ -2,4 +2,7 @@
 node_modules/
 dist/
 coverage/
+data/
+uploads/
 .DS_Store
+*.sqlite

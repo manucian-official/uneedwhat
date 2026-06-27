@@ -203,6 +203,14 @@ Interview Scheduling → Feedback Collection → Offer Decision
 
 ## 📁 Project Structure
 
+See **[STRUCTURE.md](./STRUCTURE.md)** for the full layout. Summary:
+
+- **Main files** (entry/orchestration): `backend/src/main.ts`, `backend/src/app.module.ts`, `frontend/src/main.jsx`, `docker-compose.yml`
+- **Parent files** (modules/domain): `backend/src/modules/*`, `backend/src/common/*`, `backend/src/database/*`, `frontend/src/components/*`, `frontend/src/services/*`
+- **Reference deliverables** (original flat files): `docs/reference/`
+
+The repo was reorganized from a flat deliverable package into a runnable monorepo with `backend/` and `frontend/` directories.
+
 ```
 uneedwhat/
 ├── backend/
