@@ -424,8 +424,6 @@ export function useNotification() {
  */
 interface AuthState {
   user: any | null;
-  token: string | null;
-  refreshToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
 }
@@ -433,19 +431,41 @@ interface AuthState {
 export function useAuth() {
   const [state, dispatch] = useReducer(authReducer, initialAuthState);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const hydrateAuth = async () => {
+      try {
+        const response = await apiClient.auth.me();
+        if (!isMounted) {
+          return;
+        }
+
+        dispatch({
+          type: 'LOGIN_SUCCESS',
+          payload: { user: response.data.data.user },
+        });
+      } catch {
+        if (isMounted) {
+          dispatch({ type: 'SET_LOADING', payload: false });
+        }
+      }
+    };
+
+    hydrateAuth();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const login = useCallback(async (email: string, password: string) => {
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
-      const response = await axios.post('/api/v1/auth/login', { email, password });
-      const { accessToken, refreshToken, user } = response.data.data;
+      const response = await apiClient.auth.login(email, password);
+      const { user } = response.data.data;
 
-      dispatch({
-        type: 'LOGIN_SUCCESS',
-        payload: { user, token: accessToken, refreshToken },
-      });
-
-      localStorage.setItem('token', accessToken);
-      localStorage.setItem('refreshToken', refreshToken);
+      dispatch({ type: 'LOGIN_SUCCESS', payload: { user } });
     } catch (error) {
       dispatch({ type: 'LOGIN_FAILURE', payload: error as Error });
       throw error;
@@ -454,11 +474,9 @@ export function useAuth() {
 
   const logout = useCallback(async () => {
     try {
-      await axios.post('/api/v1/auth/logout');
+      await apiClient.auth.logout();
     } finally {
       dispatch({ type: 'LOGOUT' });
-      localStorage.removeItem('token');
-      localStorage.removeItem('refreshToken');
     }
   }, []);
 
@@ -466,16 +484,10 @@ export function useAuth() {
     async (userData: any) => {
       dispatch({ type: 'SET_LOADING', payload: true });
       try {
-        const response = await axios.post('/api/v1/auth/register', userData);
-        const { accessToken, refreshToken, user } = response.data.data;
+        const response = await apiClient.auth.register(userData);
+        const { user } = response.data.data;
 
-        dispatch({
-          type: 'LOGIN_SUCCESS',
-          payload: { user, token: accessToken, refreshToken },
-        });
-
-        localStorage.setItem('token', accessToken);
-        localStorage.setItem('refreshToken', refreshToken);
+        dispatch({ type: 'LOGIN_SUCCESS', payload: { user } });
       } catch (error) {
         dispatch({ type: 'LOGIN_FAILURE', payload: error as Error });
         throw error;
@@ -494,10 +506,8 @@ export function useAuth() {
 
 const initialAuthState: AuthState = {
   user: null,
-  token: localStorage.getItem('token'),
-  refreshToken: localStorage.getItem('refreshToken'),
-  isAuthenticated: !!localStorage.getItem('token'),
-  isLoading: false,
+  isAuthenticated: false,
+  isLoading: true,
 };
 
 function authReducer(
@@ -512,15 +522,13 @@ function authReducer(
       return {
         ...state,
         user: action.payload.user,
-        token: action.payload.token,
-        refreshToken: action.payload.refreshToken,
         isAuthenticated: true,
         isLoading: false,
       };
     case 'LOGIN_FAILURE':
       return { ...state, isLoading: false };
     case 'LOGOUT':
-      return { ...state, user: null, token: null, refreshToken: null, isAuthenticated: false };
+      return { ...state, user: null, isAuthenticated: false, isLoading: false };
     case 'SET_LOADING':
       return { ...state, isLoading: action.payload };
     default:
@@ -536,20 +544,12 @@ class ApiClient {
   private instance = axios.create({
     baseURL: process.env.VITE_API_URL || 'http://localhost:3000/api/v1',
     timeout: parseInt(process.env.VITE_API_TIMEOUT || '30000'),
+    withCredentials: true,
   });
 
   constructor() {
     // Request interceptor
-    this.instance.interceptors.request.use(
-      (config) => {
-        const token = localStorage.getItem('token');
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-      },
-      (error) => Promise.reject(error)
-    );
+    this.instance.interceptors.request.use((config) => config, (error) => Promise.reject(error));
 
     // Response interceptor
     this.instance.interceptors.response.use(
@@ -557,23 +557,15 @@ class ApiClient {
       async (error: AxiosError) => {
         const originalRequest = error.config as any;
 
-        if (error.response?.status === 401 && !originalRequest._retry) {
+        const isAuthRoute = String(originalRequest.url || '').startsWith('/auth/');
+
+        if (error.response?.status === 401 && !originalRequest._retry && !isAuthRoute) {
           originalRequest._retry = true;
 
           try {
-            const refreshToken = localStorage.getItem('refreshToken');
-            const response = await this.instance.post('/auth/refresh', {
-              refreshToken,
-            });
-
-            const { accessToken } = response.data.data;
-            localStorage.setItem('token', accessToken);
-
-            originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+            await this.instance.post('/auth/refresh');
             return this.instance(originalRequest);
           } catch (refreshError) {
-            localStorage.removeItem('token');
-            localStorage.removeItem('refreshToken');
             window.location.href = '/login';
             return Promise.reject(refreshError);
           }
@@ -590,8 +582,8 @@ class ApiClient {
     login: (email: string, password: string) =>
       this.instance.post('/auth/login', { email, password }),
     logout: () => this.instance.post('/auth/logout'),
-    refresh: (refreshToken: string) =>
-      this.instance.post('/auth/refresh', { refreshToken }),
+    refresh: () => this.instance.post('/auth/refresh'),
+    me: () => this.instance.get('/auth/me'),
   };
 
   // Job endpoints

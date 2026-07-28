@@ -7,6 +7,15 @@ import { HRProfile } from '../../database/entities/hr-profile.entity';
 import { JobSeekerProfile } from '../../database/entities/job-seeker-profile.entity';
 import { UserRole } from '../../database/entities/enums';
 
+function normalizeEmail(email: string) {
+  return email.trim().toLowerCase();
+}
+
+function getBcryptSaltRounds() {
+  const parsedRounds = Number.parseInt(process.env.BCRYPT_SALT_ROUNDS || '12', 10);
+  return Number.isFinite(parsedRounds) ? Math.max(parsedRounds, 12) : 12;
+}
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -17,7 +26,7 @@ export class UsersService {
   ) {}
 
   findByEmail(email: string) {
-    return this.usersRepo.findOne({ where: { email } });
+    return this.usersRepo.findOne({ where: { email: normalizeEmail(email) } });
   }
 
   findById(id: string) {
@@ -25,7 +34,10 @@ export class UsersService {
   }
 
   async create(data: Partial<User>) {
-    const user = this.usersRepo.create(data);
+    const user = this.usersRepo.create({
+      ...data,
+      email: data.email ? normalizeEmail(data.email) : data.email,
+    });
     return this.usersRepo.save(user);
   }
 
@@ -62,7 +74,7 @@ export class UsersService {
   }
 
   async setRefreshToken(id: string, refreshToken: string) {
-    const hash = await bcrypt.hash(refreshToken, 10);
+    const hash = await bcrypt.hash(refreshToken, getBcryptSaltRounds());
     await this.usersRepo.update(id, { refreshTokenHash: hash });
   }
 
@@ -81,6 +93,9 @@ export class UsersService {
     const user = await this.findById(id);
     if (!user) throw new NotFoundException('User not found');
     Object.assign(user, data);
+    if (data.email) {
+      user.email = normalizeEmail(data.email);
+    }
     const saved = await this.usersRepo.save(user);
     const { passwordHash, refreshTokenHash, ...safe } = saved;
     return safe;

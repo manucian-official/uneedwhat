@@ -3,30 +3,46 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { UserRole } from '../../database/entities/enums';
 import { UsersService } from '../users/users.service';
-import { AuthLoginDto, AuthRefreshDto, AuthRegisterDto } from './dto/auth.dto';
+import { AuthLoginDto, AuthRegisterDto } from './dto/auth.dto';
+
+function normalizeEmail(email: string) {
+  return email.trim().toLowerCase();
+}
+
+function getBcryptSaltRounds() {
+  const parsedRounds = Number.parseInt(process.env.BCRYPT_SALT_ROUNDS || '12', 10);
+  return Number.isFinite(parsedRounds) ? Math.max(parsedRounds, 12) : 12;
+}
+
+function requiredEnv(name: string) {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`${name} is required`);
+  }
+  return value;
+}
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
-    private readonly config: ConfigService,
   ) {}
 
   async register(dto: AuthRegisterDto) {
-    const existing = await this.usersService.findByEmail(dto.email);
+    const email = normalizeEmail(dto.email);
+    const existing = await this.usersService.findByEmail(email);
     if (existing) {
       throw new ConflictException('Email already registered');
     }
 
-    const passwordHash = await bcrypt.hash(dto.password, 10);
+    const passwordHash = await bcrypt.hash(dto.password, getBcryptSaltRounds());
     const user = await this.usersService.create({
-      email: dto.email,
+      email,
       passwordHash,
       firstName: dto.firstName,
       lastName: dto.lastName,
@@ -52,7 +68,7 @@ export class AuthService {
   }
 
   async login(dto: AuthLoginDto) {
-    const user = await this.usersService.findByEmail(dto.email);
+    const user = await this.usersService.findByEmail(normalizeEmail(dto.email));
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -66,16 +82,20 @@ export class AuthService {
     return this.buildAuthResponse(user);
   }
 
-  async refreshToken(dto: AuthRefreshDto) {
+  async refreshToken(refreshToken: string) {
+    if (!refreshToken) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
     try {
-      const payload = this.jwtService.verify(dto.refreshToken, {
-        secret: this.config.get<string>('app.jwtRefreshSecret'),
+      const payload = this.jwtService.verify(refreshToken, {
+        secret: requiredEnv('JWT_REFRESH_SECRET'),
       });
       const user = await this.usersService.findById(payload.sub);
       if (!user?.refreshTokenHash) {
         throw new UnauthorizedException('Invalid refresh token');
       }
-      const valid = await bcrypt.compare(dto.refreshToken, user.refreshTokenHash);
+      const valid = await bcrypt.compare(refreshToken, user.refreshTokenHash);
       if (!valid) {
         throw new UnauthorizedException('Invalid refresh token');
       }
@@ -98,10 +118,13 @@ export class AuthService {
     role: UserRole;
   }) {
     const payload = { sub: user.id, email: user.email, role: user.role };
-    const accessToken = this.jwtService.sign(payload);
+    const accessToken = this.jwtService.sign(payload, {
+      secret: requiredEnv('JWT_SECRET'),
+      expiresIn: process.env.JWT_EXPIRATION || '7d',
+    });
     const refreshToken = this.jwtService.sign(payload, {
-      secret: this.config.get<string>('app.jwtRefreshSecret'),
-      expiresIn: this.config.get<string>('app.jwtRefreshExpiration'),
+      secret: requiredEnv('JWT_REFRESH_SECRET'),
+      expiresIn: process.env.JWT_REFRESH_EXPIRATION || '30d',
     });
     await this.usersService.setRefreshToken(user.id, refreshToken);
 

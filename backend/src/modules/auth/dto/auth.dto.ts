@@ -52,7 +52,8 @@ export class AuthLoginDto {
 }
 
 export class AuthRefreshDto {
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  refreshToken: string;
+  refreshToken?: string;
 }
