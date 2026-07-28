@@ -29,7 +29,11 @@ These files bootstrap the application, wire modules together, or define top-leve
 | **Config** | `config/` | App and database configuration |
 | **Database** | `database/entities/` | TypeORM entities (User, Job, Application, etc.) |
 | **Common** | `common/` | Guards, decorators, filters, interceptors, DTOs |
-| **Auth** | `modules/auth/` | Register, login, refresh, logout (JWT) |
+| **Auth** | `modules/auth/` | Register, login, refresh, logout, admin login/logout (JWT) |
+| **Admin** | `modules/admin/` | Dashboard stats, user/org management, audit logs |
+| **Subscriptions** | `modules/subscriptions/` | VIP plans, subscribe/upgrade, feature flags |
+| **Organizations** | `modules/organizations/` | Org CRUD, members, plan linkage |
+| **Security** | `common/middleware/`, `common/services/` | IP firewall, rate limiting, brute-force lockout, audit |
 | **Users** | `modules/users/` | User CRUD and search |
 | **Jobs** | `modules/jobs/` | Job posting, filtering, analytics |
 | **Applications** | `modules/applications/` | Application workflow and status updates |
@@ -43,11 +47,11 @@ These files bootstrap the application, wire modules together, or define top-leve
 
 | Area | Path | Purpose |
 |------|------|---------|
-| **Pages** | `main.jsx` | Landing page with auth demo UI |
-| **Styles** | `styles.css` | Global styles and design tokens |
-| **Components** | `components/` | UI and dashboard reference components |
-| **Services** | `services/api.ts` | Axios API client (for backend integration) |
-| **Hooks** | `hooks/` | React hooks (reference implementations) |
+| **Pages** | `pages/` | Landing, Login, Admin Login, Admin Dashboard, Pricing |
+| **Context** | `context/` | User and admin auth sessions |
+| **Services** | `services/apiClient.js` | Axios API client (backend integration) |
+| **Styles** | `styles.css` | Noir violet + coral design system (Syne, DM Sans) |
+| **Components** | `components/` | Navbar, pricing cards |
 
 ### Documentation & Reference — `docs/`
 
@@ -62,6 +66,12 @@ These files bootstrap the application, wire modules together, or define top-leve
 All routes are prefixed with `/api/v1`:
 
 - `POST /auth/register|login|refresh|logout`
+- `POST /auth/admin/login|logout|refresh` — admin-only JWT (`aud: admin`)
+- `GET /subscriptions/plans`, `GET /subscriptions/plans/:slug`
+- `POST /subscriptions/subscribe|cancel`, `GET /subscriptions/me`
+- `GET|POST /organizations/me`, `POST /organizations/me/members`
+- `GET /admin/dashboard`, `GET /admin/users|organizations|subscriptions|plans|audit-logs`
+- `PATCH /admin/users/:id/suspend|activate`, `PATCH /admin/plans/:id`
 - `GET|PATCH|DELETE /users/:id`, `GET /users/search`
 - `GET|POST|PATCH|DELETE /jobs`, `GET /jobs/:id/analytics`
 - `GET|POST|PATCH|DELETE /applications`, bulk status updates

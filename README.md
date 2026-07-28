@@ -45,6 +45,12 @@
 - Prepare for interviews with scheduling and reminders
 - Receive personalized notifications and opportunities
 
+### Enterprise VIP & Admin (new)
+- **Subscription tiers**: Free, Team, Business, Enterprise VIP with per-tier feature flags
+- **Admin console**: Dashboard, user/org management, plan editing, audit logs
+- **Security**: IP allowlist/blocklist, rate limiting, brute-force lockout, Helmet headers
+- **Default admin** (seeded on startup): `admin@uneedwhat.com` / `Admin@uneedwhat123` — change via env
+
 ---
 
 ## ✨ Key Features

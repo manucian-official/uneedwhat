@@ -38,3 +38,25 @@ export enum InterviewType {
   IN_PERSON = 'in-person',
   PANEL = 'panel',
 }
+
+export enum PlanTier {
+  FREE = 'free',
+  TEAM = 'team',
+  BUSINESS = 'business',
+  ENTERPRISE = 'enterprise',
+}
+
+export enum SubscriptionStatus {
+  ACTIVE = 'active',
+  TRIALING = 'trialing',
+  PAST_DUE = 'past_due',
+  CANCELLED = 'cancelled',
+  SUSPENDED = 'suspended',
+}
+
+export enum OrgMemberRole {
+  OWNER = 'owner',
+  ADMIN = 'admin',
+  MEMBER = 'member',
+  VIEWER = 'viewer',
+}

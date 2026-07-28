@@ -66,8 +66,17 @@ export class UsersService {
     await this.usersRepo.update(id, { refreshTokenHash: hash });
   }
 
+  async setAdminRefreshToken(id: string, refreshToken: string) {
+    const hash = await bcrypt.hash(refreshToken, 10);
+    await this.usersRepo.update(id, { adminRefreshTokenHash: hash });
+  }
+
   async clearRefreshToken(id: string) {
     await this.usersRepo.update(id, { refreshTokenHash: undefined });
+  }
+
+  async clearAdminRefreshToken(id: string) {
+    await this.usersRepo.update(id, { adminRefreshTokenHash: undefined });
   }
 
   async findOne(id: string) {
@@ -97,6 +106,34 @@ export class UsersService {
     };
     if (role) where.role = role;
     const users = await this.usersRepo.find({ where, take: 20 });
-    return users.map(({ passwordHash, refreshTokenHash, ...safe }) => safe);
+    return users.map(({ passwordHash, refreshTokenHash, adminRefreshTokenHash, twoFactorSecret, ...safe }) => safe);
+  }
+
+  async findAll(page = 1, limit = 20) {
+    const [users, total] = await this.usersRepo.findAndCount({
+      order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+    return {
+      items: users.map(({ passwordHash, refreshTokenHash, adminRefreshTokenHash, twoFactorSecret, ...safe }) => safe),
+      total,
+      page,
+      limit,
+    };
+  }
+
+  async suspend(id: string) {
+    await this.usersRepo.update(id, { isActive: false });
+    return this.findOne(id);
+  }
+
+  async activate(id: string) {
+    await this.usersRepo.update(id, { isActive: true });
+    return this.findOne(id);
+  }
+
+  async countAll() {
+    return this.usersRepo.count();
   }
 }

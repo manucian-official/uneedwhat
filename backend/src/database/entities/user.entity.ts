@@ -57,6 +57,21 @@ export class User {
   @Column({ nullable: true })
   refreshTokenHash?: string;
 
+  @Column({ nullable: true })
+  adminRefreshTokenHash?: string;
+
+  @Column({ default: 0 })
+  failedLoginAttempts: number;
+
+  @Column({ type: 'datetime', nullable: true })
+  lockedUntil?: Date;
+
+  @Column({ default: false })
+  twoFactorEnabled: boolean;
+
+  @Column({ nullable: true })
+  twoFactorSecret?: string;
+
   @Column({ type: 'datetime', nullable: true })
   lastLogin?: Date;
 

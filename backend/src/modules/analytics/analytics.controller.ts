@@ -1,6 +1,7 @@
 import { Controller, Get, Param, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { RequirePlanFeature } from '../../common/decorators/plan-feature.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { UserRole } from '../../database/entities/enums';
 import { AnalyticsService } from './analytics.service';
@@ -12,6 +13,7 @@ import { AnalyticsService } from './analytics.service';
 export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}
 
+  @RequirePlanFeature('analytics')
   @Get('dashboard')
   dashboard(@CurrentUser() user: { id: string; role: UserRole }) {
     return this.analyticsService.getDashboard(user.id, user.role);

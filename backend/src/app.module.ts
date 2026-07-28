@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -16,9 +16,20 @@ import { InterviewsModule } from './modules/interviews/interviews.module';
 import { BookmarksModule } from './modules/bookmarks/bookmarks.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { HealthModule } from './modules/health/health.module';
+import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
+import { OrganizationsModule } from './modules/organizations/organizations.module';
+import { AdminModule } from './modules/admin/admin.module';
+import { CommonModule } from './common/common.module';
 import { JwtAuthGuard, RolesGuard } from './common/guards/jwt-auth.guard';
+import { PlanLimitGuard } from './common/guards/plan-limit.guard';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
+import { IpFirewallMiddleware } from './common/middleware/ip-firewall.middleware';
+import { SeedService } from './database/seed.service';
+import { SubscriptionPlan } from './database/entities/subscription-plan.entity';
+import { User } from './database/entities/user.entity';
+import { Subscription } from './database/entities/subscription.entity';
+import { OrganizationMember } from './database/entities/organization-member.entity';
 
 @Module({
   imports: [
@@ -27,7 +38,10 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
       load: [appConfig, databaseConfig],
       envFilePath: ['.env', '../.env'],
     }),
-    ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
+    ThrottlerModule.forRoot([
+      { name: 'default', ttl: 60000, limit: 100 },
+      { name: 'auth', ttl: 60000, limit: 10 },
+    ]),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService): TypeOrmModuleOptions => {
@@ -58,6 +72,13 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
         };
       },
     }),
+    TypeOrmModule.forFeature([
+      SubscriptionPlan,
+      User,
+      Subscription,
+      OrganizationMember,
+    ]),
+    CommonModule,
     AuthModule,
     UsersModule,
     JobsModule,
@@ -67,13 +88,22 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
     BookmarksModule,
     AnalyticsModule,
     HealthModule,
+    SubscriptionsModule,
+    OrganizationsModule,
+    AdminModule,
   ],
   providers: [
+    SeedService,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: PlanLimitGuard },
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
     { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(IpFirewallMiddleware).forRoutes('*');
+  }
+}
