@@ -42,7 +42,9 @@ export enum InterviewType {
 export enum PlanTier {
   FREE = 'free',
   TEAM = 'team',
+  PRO = 'pro',
   BUSINESS = 'business',
+  VIP = 'vip',
   ENTERPRISE = 'enterprise',
 }
 
@@ -52,6 +54,27 @@ export enum SubscriptionStatus {
   PAST_DUE = 'past_due',
   CANCELLED = 'cancelled',
   SUSPENDED = 'suspended',
+}
+
+export enum BillingCycle {
+  MONTHLY = 'monthly',
+  YEARLY = 'yearly',
+}
+
+export enum PaymentMethod {
+  STRIPE_CARD = 'stripe_card',
+  MOMO = 'momo',
+  VNPAY = 'vnpay',
+  BANK_TRANSFER = 'bank_transfer',
+}
+
+export enum PaymentStatus {
+  PENDING = 'pending',
+  PAID = 'paid',
+  FAILED = 'failed',
+  CANCELLED = 'cancelled',
+  EXPIRED = 'expired',
+  REFUNDED = 'refunded',
 }
 
 export enum OrgMemberRole {

@@ -8,7 +8,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { SubscriptionStatus } from './enums';
+import { BillingCycle, SubscriptionStatus } from './enums';
 import { Organization } from './organization.entity';
 import { SubscriptionPlan } from './subscription-plan.entity';
 
@@ -25,6 +25,9 @@ export class Subscription {
 
   @Column({ type: 'varchar', default: SubscriptionStatus.ACTIVE })
   status: SubscriptionStatus;
+
+  @Column({ type: 'varchar', default: BillingCycle.MONTHLY })
+  billingCycle: BillingCycle;
 
   @Column({ type: 'datetime', nullable: true })
   trialEndsAt?: Date;

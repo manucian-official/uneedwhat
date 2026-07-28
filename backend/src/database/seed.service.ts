@@ -58,17 +58,17 @@ const DEFAULT_PLANS: Array<{
     },
   },
   {
-    slug: 'business',
-    name: 'Business',
-    tier: PlanTier.BUSINESS,
-    description: 'Advanced analytics and bulk operations for mid-size companies.',
-    priceMonthly: 99,
-    priceYearly: 990,
+    slug: 'pro',
+    name: 'Pro',
+    tier: PlanTier.PRO,
+    description: 'Pro hiring automation for agencies and scaling HR operations.',
+    priceMonthly: 59,
+    priceYearly: 590,
     sortOrder: 2,
     features: {
-      max_jobs: 50,
-      max_applications: 5000,
-      team_seats: 25,
+      max_jobs: 25,
+      max_applications: 2000,
+      team_seats: 12,
       analytics: 'advanced',
       api_access: false,
       bulk_operations: true,
@@ -78,13 +78,33 @@ const DEFAULT_PLANS: Array<{
     },
   },
   {
-    slug: 'enterprise',
-    name: 'Enterprise VIP',
-    tier: PlanTier.ENTERPRISE,
-    description: 'Unlimited scale, API access, custom branding, and priority support.',
-    priceMonthly: 299,
-    priceYearly: 2990,
+    slug: 'business',
+    name: 'Business',
+    tier: PlanTier.BUSINESS,
+    description: 'Advanced analytics and bulk operations for mid-size companies.',
+    priceMonthly: 99,
+    priceYearly: 990,
     sortOrder: 3,
+    features: {
+      max_jobs: 120,
+      max_applications: 12000,
+      team_seats: 40,
+      analytics: 'full',
+      api_access: true,
+      bulk_operations: true,
+      custom_branding: true,
+      priority_support: true,
+      collaboration: true,
+    },
+  },
+  {
+    slug: 'vip',
+    name: 'VIP Enterprise',
+    tier: PlanTier.VIP,
+    description: 'Concierge talent intelligence with unlimited scale and dedicated success team.',
+    priceMonthly: 499,
+    priceYearly: 4990,
+    sortOrder: 4,
     features: {
       max_jobs: -1,
       max_applications: -1,
@@ -116,12 +136,26 @@ export class SeedService implements OnModuleInit {
   }
 
   async seedPlans() {
+    const activeSlugs = DEFAULT_PLANS.map((p) => p.slug);
     for (const plan of DEFAULT_PLANS) {
       const existing = await this.plansRepo.findOne({ where: { slug: plan.slug } });
       if (!existing) {
         await this.plansRepo.save(this.plansRepo.create(plan));
+        continue;
       }
+      await this.plansRepo.save(
+        this.plansRepo.create({
+          ...existing,
+          ...plan,
+        }),
+      );
     }
+    await this.plansRepo
+      .createQueryBuilder()
+      .update(SubscriptionPlan)
+      .set({ isActive: false })
+      .where('slug NOT IN (:...slugs)', { slugs: activeSlugs })
+      .execute();
   }
 
   async seedAdmin() {

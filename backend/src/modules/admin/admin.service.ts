@@ -30,12 +30,15 @@ export class AdminService {
 
     const plans = await this.subsService.listPlans();
 
+    const revenue = await this.subsService.revenueStats();
+
     return {
       users,
       organizations,
       activeSubscriptions,
       jobs,
       applications,
+      revenue,
       plans: plans.map((p) => ({
         id: p.id,
         name: p.name,

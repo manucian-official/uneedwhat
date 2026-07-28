@@ -3,7 +3,9 @@ import { Check, Sparkles } from "lucide-react";
 const TIER_STYLES = {
   free: "plan-card--free",
   team: "plan-card--team",
+  pro: "plan-card--pro",
   business: "plan-card--business",
+  vip: "plan-card--enterprise",
   enterprise: "plan-card--enterprise",
 };
 
@@ -97,7 +99,7 @@ export default function PricingCards({ plans = [], highlight, onSelect, compact 
                 className={isHighlight ? "primary-btn" : "secondary-btn"}
                 onClick={() => onSelect(plan)}
               >
-                {plan.tier === "enterprise" ? "Liên hệ sales" : "Chọn gói"}
+                {plan.tier === "enterprise" || plan.tier === "vip" ? "Liên hệ sales" : "Chọn gói"}
               </button>
             )}
           </article>

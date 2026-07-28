@@ -311,6 +311,7 @@ button { cursor: pointer; border: none; background: none; }
   box-shadow: 0 0 60px var(--coral-glow);
 }
 .plan-card--enterprise { border-color: var(--gold); }
+.plan-card--pro { border-color: rgba(139, 92, 246, 0.7); }
 .plan-badge {
   position: absolute; top: -10px; right: 20px;
   display: flex; align-items: center; gap: 4px;
@@ -514,3 +515,33 @@ button { cursor: pointer; border: none; background: none; }
   display: flex; align-items: center; gap: 6px; color: var(--gold); opacity: 0.8;
 }
 .footer-admin:hover { opacity: 1; }
+
+/* ─── Billing & checkout ─── */
+.checkout-panel {
+  padding: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.checkout-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin: 1rem 0 1.2rem;
+}
+.checkout-grid label {
+  display: grid;
+  gap: 0.45rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.checkout-grid select {
+  background: rgba(12, 17, 28, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text);
+  border-radius: 0.7rem;
+  padding: 0.7rem 0.85rem;
+}
+.checkout-result {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.75rem;
+}

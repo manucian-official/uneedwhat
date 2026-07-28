@@ -54,8 +54,25 @@ export const api = {
   plans: {
     list: () => userApi.get("/subscriptions/plans"),
     get: (slug) => userApi.get(`/subscriptions/plans/${slug}`),
+    paymentMethods: () => userApi.get("/subscriptions/payment-methods"),
     subscribe: (planSlug, orgName) =>
       userApi.post("/subscriptions/subscribe", { planSlug, orgName }),
+    checkout: ({ planSlug, billingCycle, paymentMethod, orgName }) =>
+      userApi.post("/subscriptions/checkout", {
+        planSlug,
+        billingCycle,
+        paymentMethod,
+        orgName,
+      }),
+    confirmPayment: (transactionId) =>
+      userApi.post("/subscriptions/payments/confirm", { transactionId }),
+    cancelPayment: (transactionId, reason) =>
+      userApi.post("/subscriptions/payments/cancel", { transactionId, reason }),
+    paymentStatus: (transactionId) => userApi.get(`/subscriptions/payments/${transactionId}`),
+    webhookPayment: (externalRef, status) =>
+      userApi.post("/subscriptions/payments/webhook", { externalRef, status }),
+    myPayments: (page = 1) =>
+      userApi.get("/subscriptions/payments/me", { params: { page } }),
     my: () => userApi.get("/subscriptions/me"),
   },
 

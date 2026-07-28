@@ -13,3 +13,4 @@ export * from './organization-member.entity';
 export * from './subscription.entity';
 export * from './admin-audit-log.entity';
 export * from './login-attempt.entity';
+export * from './payment-transaction.entity';

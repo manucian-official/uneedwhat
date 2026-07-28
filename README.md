@@ -46,7 +46,8 @@
 - Receive personalized notifications and opportunities
 
 ### Enterprise VIP & Admin (new)
-- **Subscription tiers**: Free, Team, Business, Enterprise VIP with per-tier feature flags
+- **Subscription tiers**: Free, Team, Pro, Business, VIP Enterprise with per-tier feature flags
+- **Payment methods**: Stripe Card, MoMo, VNPay, Bank Transfer with checkout + confirmation API
 - **Admin console**: Dashboard, user/org management, plan editing, audit logs
 - **Security**: IP allowlist/blocklist, rate limiting, brute-force lockout, Helmet headers
 - **Default admin** (seeded on startup): `admin@uneedwhat.com` / `Admin@uneedwhat123` — change via env

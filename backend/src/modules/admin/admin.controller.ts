@@ -97,6 +97,16 @@ export class AdminController {
     return this.subsService.listAll(+page, +limit);
   }
 
+  @Get('payments')
+  listPayments(@Query('page') page = '1', @Query('limit') limit = '20') {
+    return this.subsService.listPayments(+page, +limit);
+  }
+
+  @Get('revenue')
+  revenue() {
+    return this.subsService.revenueStats();
+  }
+
   @Get('plans')
   listPlans() {
     return this.subsService.listPlans();
